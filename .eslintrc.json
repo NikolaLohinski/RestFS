@@ -1,0 +1,25 @@
+{
+  "env": {
+    "node": true
+  },
+  "extends": [
+    "google"
+  ],
+  "rules": {
+    "new-cap": 0,
+    "semi": [
+      "error",
+      "always"
+    ],
+    "max-len": [
+      "warn",
+      {
+        "code": 120
+      }
+    ],
+    "linebreak-style": "off"
+  },
+  "parserOptions": {
+    "ecmaVersion": 6
+  }
+}

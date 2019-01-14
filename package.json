@@ -1,0 +1,39 @@
+{
+  "name": "restfs",
+  "version": "1.0.0",
+  "description": "Very simple RESTful File System API built with NodeJS",
+  "main": "index.mjs",
+  "scripts": {
+    "nodemon": "./node_modules/.bin/nodemon",
+    "start": "npm run nodemon -- --exec node --experimental-modules index.mjs",
+    "all": "npm run start -- -n 15",
+    "production":"node --experimental-modules index.mjs -n 15"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NikolaLohinski/RestFS.git"
+  },
+  "keywords": [
+    "NodeJS",
+    "RESTful",
+    "API",
+    "FileSystem"
+  ],
+  "author": "NikolaLohinski",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/NikolaLohinski/RestFS/issues"
+  },
+  "homepage": "https://github.com/NikolaLohinski/RestFS#readme",
+  "dependencies": {
+    "argparse": "^1.0.10",
+    "cors": "^2.8.5",
+    "express": "^4.16.4",
+    "mkdirp": "^0.5.1"
+  },
+  "devDependencies": {
+    "eslint": "^5.12.0",
+    "eslint-config-google": "^0.11.0",
+    "nodemon": "^1.18.9"
+  }
+}
