@@ -101,7 +101,7 @@ export default class Server {
 
   $setUploadFile() {
     const self = this;
-    self.router.route('/files/upload').put((req, res) => {
+    self.router.route('/files/upload').post((req, res) => {
       const file = req.get('RFS-arg-path');
       console.log(`request upload ${file}`);
       if (!file) {
@@ -112,6 +112,7 @@ export default class Server {
         try {
           const writeStream = fs.createWriteStream(filePath, {
             'defaultEncoding': 'binary',
+            'encoding': 'binary',
           });
           req.on('data', (chunk) => {
             writeStream.write(chunk);
