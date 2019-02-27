@@ -10,6 +10,7 @@ export default class Server {
     this.port = port;
     this.directory = directory;
     this.version = version;
+    this.uploading = {};
     this.base = `http://localhost:${port}/v${version}/`;
     this.app = express();
     this.app.use(cors());
@@ -21,31 +22,36 @@ export default class Server {
   }
 
   $setRoutes() {
-    this.$setListFiles();
-    this.$setDeleteFile();
-    this.$setDownloadFile();
-    this.$setUploadFile();
+    this._setListFiles();
+    this._setDeleteFile();
+    this._setDownloadFile();
+    this._setUploadFile();
+    this._setUploadChunk();
   }
 
-  $setListFiles() {
-    this.router.route('/files').get((req, res) => {
+  _setListFiles() {
+    const self = this;
+    self.router.route('/files').get((req, res) => {
       console.log('request files list');
       res.json(
-        fs.readdirSync(this.directory)
+        fs.readdirSync(self.directory)
           .map((element) => {
-          const file = fs.statSync(path.join(this.directory, element));
+          const file = fs.statSync(path.join(self.directory, element));
           return {
+            id: element,
             name: element,
             size: file.size,
             modified: file.mtime,
             isFile: file.isFile(),
           };
-        })
+        }).filter((element) => {
+          return !self.uploading[element.id];
+        }),
       );
     });
   }
 
-  $setDeleteFile() {
+  _setDeleteFile() {
     const self = this;
     self.router.route('/files').delete((req, res) => {
       const filePath = req.get('RFS-arg-path');
@@ -73,7 +79,7 @@ export default class Server {
     });
   }
 
-  $setDownloadFile() {
+  _setDownloadFile() {
     const self = this;
     self.router.route('/files/download').get((req, res) => {
       const file = req.get('RFS-arg-path');
@@ -99,33 +105,78 @@ export default class Server {
     });
   }
 
-  $setUploadFile() {
+  _setUploadFile() {
     const self = this;
     self.router.route('/files/upload').post((req, res) => {
-      const file = req.get('RFS-arg-path');
+      const file = req.get('rfs-arg-path');
+      const size = parseInt(req.get('rfs-arg-size'));
       console.log(`request upload ${file}`);
-      if (!file) {
+      if (!file || !size) {
         console.log('error on file upload parameters');
         res.status(400).json({error: 'cannot get the name of the file to upload'});
       } else {
         const filePath = path.normalize(path.join(self.directory, file));
         try {
-          const writeStream = fs.createWriteStream(filePath, {
+          const stream = fs.createWriteStream(filePath, {
             'defaultEncoding': 'binary',
             'encoding': 'binary',
           });
-          req.on('data', (chunk) => {
-            writeStream.write(chunk);
-          });
-          req.on('end', () => {
-            writeStream.end();
-            console.log(`finished upload ${file}`);
-            res.status(201).json({status: 'ok'});
+          const id = file;
+          const position = 0;
+          self.uploading[file] = {
+            stream,
+            size,
+            id,
+            position,
+            name: file,
+          };
+          stream.on('open', () => {
+            console.log(`registered upload ${id}`);
+            res.status(201).json({ id, position });
             res.end();
           });
         } catch(err) {
-          console.log('error 403 bad path');
+          console.error(err);
           res.status(403).json({error: 'path is not correct'});
+        }
+      }
+    });
+  }
+
+  _setUploadChunk() {
+    const self = this;
+    self.router.route('/files/upload').put((req, res) => {
+      const id = req.get('rfs-arg-id');
+      console.log(`upload chunk for ${id}`);
+      if (!self.uploading[id]) {
+        console.log(`error unknown file parameters ${id}`);
+        res.status(400).json({error: 'File was not registered before uploading chunks'});
+      } else {
+        try {
+          req.on('data', (data) => {
+            self.uploading[id].stream.write(data);
+            self.uploading[id].position += data.length;
+          });
+          req.on('error', (error) => {
+            console.error(error);
+            res.status(403).json({error: `error uploading chunk for file ${id}`});
+            res.end();
+          });
+          req.on('end', () => {
+            if (self.uploading[id].position >= self.uploading[id].size) {
+              self.uploading[id].stream.close();
+              delete self.uploading[id];
+              res.status(201).json({status: 'done'});
+            } else if (self.uploading[id].position < self.uploading[id].size) {
+              res.status(200).json({status: 'ok', position: self.uploading[id].position, id});
+            } else {
+              res.status(403).json({error: `error uploading chunk for file ${id}`});
+            }
+            res.end();
+          });
+        } catch(err) {
+          console.error(error);
+          res.status(403).json({error: `error uploading chunk for file ${id}`});
         }
       }
     });
